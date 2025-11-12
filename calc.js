@@ -86,6 +86,7 @@ function toggleSMECheckbox() {
 // Toggle JLPT N2 button based on japanese university degree
 const japaneseUniversityCheckbox = document.getElementById('japanese-university');
 const jlptN2Radio = document.getElementById('jlpt-n2');
+const jlptN2Help = document.getElementById('jlpt-n2-help');
 
 japaneseUniversityCheckbox.addEventListener('change', toggleJLPTN2Radio);
 
@@ -93,8 +94,10 @@ function toggleJLPTN2Radio() {
     if (japaneseUniversityCheckbox.checked) {
         jlptN2Radio.disabled = true;
         jlptN2Radio.checked = false;
+        jlptN2Help.style.display = 'block';
     } else {
         jlptN2Radio.disabled = false;
+        jlptN2Help.style.display = 'none';
     }
 }
 
