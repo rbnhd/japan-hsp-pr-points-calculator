@@ -217,3 +217,20 @@ input:checked+.toggle-slider:before {
     margin-top: 20px;
     text-align: center;
 }
+
+.help-text {
+    margin-top: 10px;
+    margin-left: 20px;
+    padding: 12px;
+    background-color: #fff3cd;
+    border-left: 4px solid #ffc107;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #856404;
+}
+
+.dark-mode .help-text {
+    background-color: #664d03;
+    border-left: 4px solid #ffc107;
+    color: #ffecb5;
+}
