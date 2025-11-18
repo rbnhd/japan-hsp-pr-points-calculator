@@ -63,17 +63,6 @@ function getSalaryIndex(salary) {
     return 7;
 }
 
-function toggleDarkMode() {
-    const selectedMode = darkModeSelect.value;
-    const body = document.body;
-
-    if (selectedMode === 'dark') {
-        body.classList.add('dark-mode');
-    } else {
-        body.classList.remove('dark-mode');
-    }
-}
-
 function toggleSMECheckbox() {
     if (innovationSupportCheckbox.checked) {
         smeCheckbox.disabled = false;
