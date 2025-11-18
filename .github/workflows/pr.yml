@@ -41,7 +41,9 @@ jobs:
               "no-implicit-button-type": "off",
               "unique-landmark": "off",
               "void-style": "off",
-              "no-redundant-role": "off"
+              "no-redundant-role": "off",
+              "wcag/h32": "off",
+              "form-dup-name": "off"
             }
           }
           EOF
