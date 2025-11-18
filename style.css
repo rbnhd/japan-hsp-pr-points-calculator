@@ -234,3 +234,23 @@ input:checked+.toggle-slider:before {
     border-left: 4px solid #ffc107;
     color: #ffecb5;
 }
+
+.dark-mode footer {
+    color: #ccc;
+}
+
+.dark-mode .disclaimer {
+    color: #ccc;
+}
+
+.dark-mode .hosted-by {
+    color: #ccc;
+}
+
+.dark-mode footer a {
+    color: #66b3ff;
+}
+
+.dark-mode footer a:hover {
+    color: #99ccff;
+}
