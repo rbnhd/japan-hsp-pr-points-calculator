@@ -1,0 +1,300 @@
+name: PR Validation Checks
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - '**/README.md'
+      - '**/LICENSE'
+      - '**/.local/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate-html:
+    name: Validate HTML Files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install HTML validator
+        run: npm install -g html-validate
+
+      - name: Create HTML validation config
+        run: |
+          cat > .htmlvalidate.json << 'EOF'
+          {
+            "extends": ["html-validate:recommended"],
+            "rules": {
+              "no-inline-style": "off",
+              "require-sri": "off",
+              "no-trailing-whitespace": "off",
+              "no-implicit-button-type": "off",
+              "unique-landmark": "off",
+              "void-style": "off",
+              "no-redundant-role": "off"
+            }
+          }
+          EOF
+
+      - name: Validate HTML files
+        run: |
+          echo "🔍 Validating HTML syntax (critical errors only)..."
+          html-validate "*.html" || exit 1
+          echo "✅ All HTML files have valid syntax!"
+
+  validate-css:
+    name: Validate CSS Files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Validate CSS syntax
+        run: |
+          echo "🔍 Validating CSS syntax (critical errors only)..."
+          EXIT_CODE=0
+
+          for file in *.css; do
+            if [ -f "$file" ]; then
+              echo "Checking: $file"
+
+              node -e "
+                const fs = require('fs');
+                const css = fs.readFileSync('$file', 'utf8');
+
+                const openBraces = (css.match(/{/g) || []).length;
+                const closeBraces = (css.match(/}/g) || []).length;
+
+                if (openBraces !== closeBraces) {
+                  console.error('❌ Unmatched braces in $file');
+                  process.exit(1);
+                }
+
+                const lines = css.split('\n');
+                lines.forEach((line, i) => {
+                  const singleQuotes = (line.match(/'/g) || []).length;
+                  const doubleQuotes = (line.match(/\"/g) || []).length;
+                  if (singleQuotes % 2 !== 0 || doubleQuotes % 2 !== 0) {
+                    if (!line.includes('\\\\\"') && !line.includes(\"\\\\'\")){
+                      console.warn('⚠️  Possible unterminated string at line ' + (i+1) + ' in $file');
+                    }
+                  }
+                });
+
+                console.log('✅ Valid: $file');
+              " || EXIT_CODE=1
+            fi
+          done
+
+          if [ $EXIT_CODE -eq 0 ]; then
+            echo "✅ All CSS files have valid syntax!"
+          else
+            echo "❌ Some CSS files have critical syntax errors!"
+          fi
+
+          exit $EXIT_CODE
+
+  validate-javascript:
+    name: Validate JavaScript Files
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install ESLint
+        run: npm install -g eslint@8
+
+      - name: Create ESLint config (legacy format for ESLint 8)
+        run: |
+          cat > .eslintrc.json << 'EOF'
+          {
+            "env": {
+              "browser": true,
+              "es2021": true
+            },
+            "extends": "eslint:recommended",
+            "parserOptions": {
+              "ecmaVersion": "latest",
+              "sourceType": "script"
+            },
+            "rules": {
+              "no-unused-vars": "off",
+              "no-console": "off",
+              "no-undef": "warn"
+            }
+          }
+          EOF
+
+      - name: Validate JavaScript files
+        run: |
+          echo "🔍 Validating JavaScript syntax (critical errors only)..."
+          eslint "*.js" --quiet || exit 1
+          echo "✅ All JavaScript files have valid syntax!"
+
+  check-links:
+    name: Check for Broken Links
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check internal links
+        run: |
+          echo "🔍 Checking for broken internal links..."
+          EXIT_CODE=0
+
+          for html_file in $(find . -name "*.html" -not -path "*/node_modules/*"); do
+            echo "Checking links in: $html_file"
+
+            grep -oP '(href|src)=["'\'']\K[^"'\'']*(?=["'\''])' "$html_file" 2>/dev/null | while read link; do
+              if [[ "$link" =~ ^(http|https|mailto|tel|#|data:) ]]; then
+                continue
+              fi
+
+              dir=$(dirname "$html_file")
+
+              if [[ "$link" = /* ]]; then
+                target_file=".$link"
+              else
+                target_file="$dir/$link"
+              fi
+
+              target_file="${target_file%%\?*}"
+              target_file="${target_file%%\#*}"
+
+              if [ ! -e "$target_file" ] && [ ! -d "$target_file" ]; then
+                echo "⚠️  Broken link in $html_file: $link (target: $target_file not found)"
+              fi
+            done
+          done
+
+          echo "✅ Link check complete!"
+
+  summary:
+    name: Validation Summary
+    runs-on: ubuntu-latest
+    needs: [validate-html, validate-css, validate-javascript, check-links]
+    if: always()
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Check all validations passed
+        id: check
+        run: |
+          echo "📊 Validation Summary:"
+          echo "====================="
+
+          if [ "${{ needs.validate-html.result }}" = "success" ]; then
+            echo "✅ HTML validation: PASSED"
+          else
+            echo "❌ HTML validation: FAILED"
+          fi
+
+          if [ "${{ needs.validate-css.result }}" = "success" ]; then
+            echo "✅ CSS validation: PASSED"
+          else
+            echo "❌ CSS validation: FAILED"
+          fi
+
+          if [ "${{ needs.validate-javascript.result }}" = "success" ]; then
+            echo "✅ JavaScript validation: PASSED"
+          else
+            echo "❌ JavaScript validation: FAILED"
+          fi
+
+          if [ "${{ needs.check-links.result }}" = "success" ]; then
+            echo "✅ Link checking: PASSED"
+          else
+            echo "❌ Link checking: FAILED"
+          fi
+
+          if [ "${{ needs.validate-html.result }}" != "success" ] || \
+             [ "${{ needs.validate-css.result }}" != "success" ] || \
+             [ "${{ needs.validate-javascript.result }}" != "success" ]; then
+            echo ""
+            echo "❌ Some validation checks failed. Please fix the issues above."
+            echo "overall_status=failed" >> $GITHUB_OUTPUT
+          else
+            echo ""
+            echo "✅ All validation checks passed! PR is ready to merge."
+            echo "overall_status=passed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Post PR comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const results = {
+              html: '${{ needs.validate-html.result }}',
+              css: '${{ needs.validate-css.result }}',
+              javascript: '${{ needs.validate-javascript.result }}',
+              links: '${{ needs.check-links.result }}'
+            };
+
+            const status = '${{ steps.check.outputs.overall_status }}';
+            const emoji = status === 'passed' ? '✅' : '❌';
+            const title = status === 'passed' ? 'All Validation Checks Passed!' : 'Some Validation Checks Failed';
+
+            const body = `## ${emoji} ${title}
+
+            | Check | Status |
+            |-------|--------|
+            | HTML Validation | ${results.html === 'success' ? '✅ Passed' : '❌ Failed'} |
+            | CSS Validation | ${results.css === 'success' ? '✅ Passed' : '❌ Failed'} |
+            | JavaScript Validation | ${results.javascript === 'success' ? '✅ Passed' : '❌ Failed'} |
+            | Link Checking | ${results.links === 'success' ? '✅ Passed' : '⚠️ Warnings'} |
+
+            ${status === 'passed' ? '🎉 This PR is ready to merge!' : '⚠️ Please fix the failing checks before merging.'}
+
+            <sub>Automated validation by PR workflow</sub>`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' &&
+              comment.body.includes('Automated validation by PR workflow')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+      - name: Fail if checks failed
+        if: steps.check.outputs.overall_status == 'failed'
+        run: exit 1
