@@ -150,11 +150,55 @@ function setTranslate(xPos, yPos, el) {
     el.style.transform = `translate3d(${xPos}px, ${yPos}px, 0)`;
 }
 
-// Dark mode toggle
+// Dark mode toggle with automatic detection and manual override
 const darkModeSwitch = document.getElementById('dark-mode-switch');
-darkModeSwitch.addEventListener('change', toggleDarkMode);
 
+// Initialize theme on page load
+function initializeTheme() {
+    // Check if user has a saved preference
+    const savedTheme = localStorage.getItem('theme');
+
+    if (savedTheme) {
+        // Use saved preference
+        applyTheme(savedTheme === 'dark');
+    } else {
+        // Use browser's preferred color scheme
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        applyTheme(prefersDark);
+    }
+}
+
+// Apply theme based on isDark boolean
+function applyTheme(isDark) {
+    const body = document.body;
+    if (isDark) {
+        body.classList.add('dark-mode');
+        darkModeSwitch.checked = true;
+    } else {
+        body.classList.remove('dark-mode');
+        darkModeSwitch.checked = false;
+    }
+}
+
+// Handle manual toggle
 function toggleDarkMode() {
     const body = document.body;
-    body.classList.toggle('dark-mode');
+    const isDark = body.classList.toggle('dark-mode');
+
+    // Save user's preference
+    localStorage.setItem('theme', isDark ? 'dark' : 'light');
 }
+
+// Listen for changes in browser's color scheme preference
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+    // Only apply if user hasn't set a manual preference
+    if (!localStorage.getItem('theme')) {
+        applyTheme(e.matches);
+    }
+});
+
+// Initialize theme when page loads
+initializeTheme();
+
+// Add event listener for manual toggle
+darkModeSwitch.addEventListener('change', toggleDarkMode);
