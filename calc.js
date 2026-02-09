@@ -172,7 +172,7 @@ function getProgressScaleMax(points) {
         return 100;
     }
 
-    return Math.min(Math.ceil(points / 50) * 50, 250);
+    return Math.min(Math.ceil(points / 50) * 50, 300);
 }
 
 function positionProgressMarkers(scaleMax) {
