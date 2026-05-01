@@ -1,3 +1,19 @@
 local/
 .local/
 archive/
+
+# local
+.local*
+
+# AI agents / assistants
+.claude/
+.cursor/
+.aider*
+.continue/
+.windsurf/
+.codeium/
+.cody/
+.tabnine/
+.gemini/
+.copilot/
+.zed/
